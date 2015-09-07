@@ -1,0 +1,11 @@
+.*sw?
+*~
+Backgrounds/
+CachedPixmaps/
+IconSets/
+Pixmaps/
+Styles/
+Themes/
+WPrefs/
+.fonts_converted
+

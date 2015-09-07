@@ -23,8 +23,8 @@ is_positive_int() {
 
 findproc() {
 	found=( $( ps aux | awk -v B="$1" '$0!~"awk" && $0~B {print $2}' ) )
-	# else... return just the first one, which is better than nothing
-	echo -n "${found[0]}"
+	# return just the first one, or empty string if not found
+	echo -n "${found[0]-}"
 }
 
 run_only_once() {

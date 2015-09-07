@@ -1,0 +1,67 @@
+#!/bin/bash
+#set -x
+xset m 20/10 4
+
+# Unofficial Bash "strict" mode
+set -euo pipefail
+IFS=$'\n\t'
+
+ME=$(basename "$0")
+LOCK_PATH=/tmp/run_once_locks
+if [ ! -d $LOCK_PATH ]; then
+	mkdir -p $LOCK_PATH
+fi
+
+quietly() {
+    $* &>/dev/null
+    return $?
+}
+
+is_positive_int() {
+	quietly [ "$1" -gt 0 ]
+}
+
+findproc() {
+	found=( $( ps aux | awk -v B="$1" '$0!~"awk" && $0~B {print $2}' ) )
+	# else... return just the first one, which is better than nothing
+	echo -n "${found[0]}"
+}
+
+run_only_once() {
+	cmd="$1"
+	echo "run_only_once($cmd)"
+	lockfile=$LOCK_PATH/${1//[^/A-Za-z0-9]/}
+	if ! quietly which "$cmd"; then
+		logger -s "$ME: Given comand '$cmd' couldn't be found. Bailing out."
+		return 1
+	fi
+	if [ -f $lockfile ]; then
+		pid=$( cat $lockfile )
+		if ! is_positive_int "$pid"; then
+			logger -s "$ME: Found bad PID in $lockfile. Qutting"
+			return 1
+		fi
+		if quietly kill -0 $pid; then
+			logger -s "$ME: Found '$cmd' already running as $pid."
+			return 0
+		fi
+	fi
+		
+	# else, see if maybe it's running but the process isn't in the PID file
+	pid=$( findproc "$cmd" )
+	if [ -z "$pid" ]; then
+		logger -s "$ME: Running new instance of '$cmd' in the background."
+		"$cmd" &
+		echo -n $! > $lockfile
+		#echo $! # if we wanted run_only_once to return the PID
+		return 0
+	else
+		logger -s "$ME: Found '$cmd' as PID $pid, lock file out-of-date."
+		echo -n $pid > $lockfile
+		return 0
+	fi
+} # run_only_once
+
+run_only_once 'gnome-settings-daemon'
+run_only_once 'gnome-do'
+run_only_once 'tilda'
